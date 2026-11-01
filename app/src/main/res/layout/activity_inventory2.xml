@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!--Add title-->
+    <TextView
+        android:id="@+id/textInventoryTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="72dp"
+        android:fontFamily="serif"
+        android:text="Inventory Items"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.436"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+   <!--add button to add items-->
+    <Button
+        android:id="@+id/buttonAddItem"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Add Item"
+        android:layout_marginTop="16dp"
+        app:layout_constraintTop_toBottomOf="@id/textInventoryTitle"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginEnd="16dp"/>
+    <!--add text input field for new item names-->
+    <EditText
+        android:id="@+id/editNewItemName"
+        android:layout_width="149dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="124dp"
+        android:layout_marginEnd="32dp"
+        android:hint="New item name"
+        android:inputType="text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!--add text input field for new item quantities-->
+    <EditText
+        android:id="@+id/editNewItemQuantity"
+        android:layout_width="149dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginTop="124dp"
+        android:layout_marginEnd="32dp"
+        android:hint="New Quantity"
+        android:inputType="text"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.634"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!--add header for item names-->
+    <TextView
+        android:id="@+id/headerName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
+        android:fontFamily="sans-serif-black"
+        android:text="Item Name"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonAddItem" />
+    <!--Add header for quantity-->
+    <TextView
+        android:id="@+id/headerQuantity"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="68dp"
+        android:fontFamily="sans-serif-black"
+        android:text="Quantity"
+        android:textStyle="bold"
+        app:layout_constraintStart_toEndOf="@id/headerName"
+        app:layout_constraintTop_toTopOf="@id/headerName" />
+    <!--add header for delete button-->
+    <TextView
+        android:id="@+id/headerDelete"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="16dp"
+        android:fontFamily="sans-serif-black"
+        android:text="Delete Item"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/headerName" />
+    <!--add header for update button-->
+    <TextView
+        android:id="@+id/headerUpdate"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="104dp"
+        android:fontFamily="sans-serif-black"
+        android:text="Update Item"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/headerName" />
+    <!--add Recycler View-->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerInventory"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/headerName"
+        app:layout_constraintVertical_bias="0.0" />
+    <!--Button to navigate to notification settings-->
+    <Button
+        android:id="@+id/buttonNotifications"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="272dp"
+        android:layout_marginTop="728dp"
+        android:text="Notifications"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textInventoryTitle" />
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".NotificationActivity">
+    <!--Add title-->
+    <TextView
+        android:id="@+id/textInventoryTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="72dp"
+        android:fontFamily="serif"
+        android:text="Notifications"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!--Add notification description-->
+    <TextView
+        android:id="@+id/textDescription"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="160dp"
+        android:fontFamily="serif"
+        android:text="Recieve SMS alerts when item stock is low."
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.507"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!--Permission description-->
+    <TextView
+        android:id="@+id/textPermissionInfo"
+        android:layout_width="320dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="200dp"
+        android:text="If permission is granted, SMS alerts will be sent when inventory becomes low."
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!-- Switch Button for user to turn on/off notifications -->
+    <Switch
+        android:id="@+id/switchNotifications"
+        android:layout_width="232dp"
+        android:layout_height="46dp"
+        android:layout_marginTop="268dp"
+        android:layout_marginEnd="184dp"
+        android:text="Enable SMS Notifications"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!-- Notification Status -->
+    <TextView
+        android:id="@+id/textNotificationLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="648dp"
+        android:text="Notification Status:"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+    <!-- Notification Status -->
+    <TextView
+        android:id="@+id/textNotificationStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="40dp"
+        android:layout_marginBottom="650dp"
+        android:text="Notifications Disabled"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toEndOf="@+id/textNotificationLabel" />
+    <!--Phone number entry field-->
+    <EditText
+        android:id="@+id/editPhoneNumber"
+        android:layout_width="212dp"
+        android:layout_height="39dp"
+        android:layout_marginTop="376dp"
+        android:hint="Phone Number"
+        android:inputType="phone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.135"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+    <!--save button for phone number-->
+    <Button
+        android:id="@+id/buttonSaveNumber"
+        android:layout_width="81dp"
+        android:layout_height="46dp"
+        android:layout_marginTop="376dp"
+        android:text="Save"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.694"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>
