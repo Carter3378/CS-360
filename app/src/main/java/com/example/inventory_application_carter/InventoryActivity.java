@@ -6,15 +6,10 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-import android.telephony.SmsManager;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import androidx.core.content.ContextCompat;
-import android.Manifest;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
 import java.util.ArrayList;
 
 public class InventoryActivity extends AppCompatActivity {
@@ -35,6 +30,9 @@ public class InventoryActivity extends AppCompatActivity {
 
         // Initialize database
         database = new Database(this);
+
+        // Create the notification channel
+        NotificationHelper.createNotificationChannel(this);
 
         // Connect controls to text edit and buttons
         editNewItemName = findViewById(R.id.editNewItemName);
@@ -66,22 +64,55 @@ public class InventoryActivity extends AppCompatActivity {
 
                 String quantityText = editNewItemQuantity.getText().toString().trim();
 
-                // Verify fields are note empty
-                if (itemName.isEmpty() ||
-                        quantityText.isEmpty()) {
-                    //return a toast message with error stating fields must be populated
-                    Toast.makeText(InventoryActivity.this, "Enter item name and quantity", Toast.LENGTH_SHORT).show();
-
+                // Separate field entry validation
+                // Validate item name, return error of specific empty field
+                if (itemName.isEmpty()) {
+                    editNewItemName.setError("Item name is required.");
+                    editNewItemName.requestFocus();
                     return;
                 }
 
-                int quantity = Integer.parseInt(quantityText);
+                // Validate quantity, return error of specific empty field
+                if (quantityText.isEmpty()) {
+                    editNewItemQuantity.setError("Quantity is required.");
+                    editNewItemQuantity.requestFocus();
+                    return;
+                }
 
+                int quantity;
+                // Retrieve user input quantity and catch the Number Format Exception if non-numerical values are entered
+                try{
+                    quantity = Integer.parseInt(quantityText);
+                }
+                catch (NumberFormatException e){
+                    editNewItemQuantity.setError("Please enter a valid number.");
+                    editNewItemQuantity.requestFocus();
+                    return;
+                }
+                // Validate that the quantity input is not negative
+                // If negative integer is entered throw an error.
+                if(quantity < 0){
+                    editNewItemQuantity.setError("Quantity cannot be negative.");
+                    editNewItemQuantity.requestFocus();
+                    return;
+                }
+
+                //Clear previous errors after valid entry
+                editNewItemQuantity.setError(null);
+                editNewItemName.setError(null);
+
+                //Add item to database
                 long result = database.addItem(itemName, quantity);
 
+                //Validate if item was added successfully
                 if (result != -1) {
                     //return successful toast message that item was successfully added
                     Toast.makeText(InventoryActivity.this, "Item Added", Toast.LENGTH_SHORT).show();
+
+                    //Send notification if item with zero quantity is added
+                    if (quantity == 0 && areNotificationsEnabled()) {
+                        NotificationHelper.showLowInventoryNotification(InventoryActivity.this, itemName, (int) result);
+                    }
 
                     // Refresh inventory list
                     loadInventory();
@@ -89,6 +120,10 @@ public class InventoryActivity extends AppCompatActivity {
                     // Clear input fields
                     editNewItemName.setText("");
                     editNewItemQuantity.setText("");
+                }
+                //If item was not added, notify the user
+                else{
+                    Toast.makeText(InventoryActivity.this,"Item was not added, please try again",Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -104,38 +139,75 @@ public class InventoryActivity extends AppCompatActivity {
                 // Delete button action
                 itemId -> {
 
-                    database.deleteItem(itemId);
-                    //refresh the recyclerview after deleting item
-                    loadInventory();
-                    //return a toast message that the item was deleted successfully.
-                    Toast.makeText(InventoryActivity.this, "Item Deleted", Toast.LENGTH_SHORT).show();
+                    // Attempt to delete the selected inventory item
+                    int rowsDeleted = database.deleteItem(itemId);
+
+                    if (rowsDeleted > 0) {
+
+                        // Refresh the inventory after successful deletion
+                        loadInventory();
+
+                        Toast.makeText(InventoryActivity.this, "Item Deleted", Toast.LENGTH_SHORT).show();
+                    }
+                    else {
+                        // Display an error if the deletion fails
+                        Toast.makeText(InventoryActivity.this, "Unable to delete item. Please try again.", Toast.LENGTH_SHORT).show();
+                    }
                 },
 
                 // Update button action
                 itemId -> {
 
                     String quantityText = editNewItemQuantity.getText().toString();
-
+                    // Validate the quantity field is not empty
+                    // Use requestFocus() to highlight required field
                     if (quantityText.isEmpty()) {
-                        //return a toast message stating an error if update button is selected with quantity inserted in the quantity text edit field.
-                        Toast.makeText(InventoryActivity.this, "Enter a quantity to update", Toast.LENGTH_SHORT).show();
-
+                        editNewItemQuantity.setError("Quantity is required.");
+                        editNewItemQuantity.requestFocus();
                         return;
                     }
 
-                    int quantity = Integer.parseInt(quantityText);
+                    int quantity;
+                    // Retrieve user input quantity and catch the Number Format Exception if non-numerical values are entered
+                    try {
+                        quantity = Integer.parseInt(quantityText);
+                    }
+                    catch (NumberFormatException e){
+                        editNewItemQuantity.setError("Please enter valid number");
+                        editNewItemQuantity.requestFocus();
+                        return;
+                    }
+                    // Validate that the quantity input is not negative
+                    // If negative integer is entered throw an error.
+                    if(quantity < 0){
+                        editNewItemQuantity.setError("Quantity cannot be negative.");
+                        editNewItemQuantity.requestFocus();
+                        return;
+                    }
+                    //Clear previous errors
+                    editNewItemQuantity.setError(null);
 
                     //update the quantity in the database
-                    database.updateItemQuantity(itemId, quantity);
+                    int updatedRows = database.updateItemQuantity(itemId, quantity);
+                    // Validate the database operation.
+                    if (updatedRows > 0){
+                        //Return success message if rows were updated.
+                        Toast.makeText(InventoryActivity.this,"Quantity updated",Toast.LENGTH_SHORT).show();
+                    }
+                    else{
+                        //Else return error message that the database operation failed.
+                        Toast.makeText(InventoryActivity.this,"Unable to update inventory, please try again",Toast.LENGTH_SHORT).show();
+                        return;
+                    }
 
-                    //Trigger SMS notification when quantity of an item reaches 0
-                    if (quantity == 0) {
+                    //Trigger notification when item is update to zero quantity
+                    if (quantity == 0 && areNotificationsEnabled()) {
 
                         for (InventoryItem item : itemList) {
 
                             if (item.getItemId() == itemId) {
 
-                                sendLowInventorySMS(item.getItemName());
+                                NotificationHelper.showLowInventoryNotification(InventoryActivity.this, item.getItemName(), itemId);
 
                                 break;
                             }
@@ -150,35 +222,12 @@ public class InventoryActivity extends AppCompatActivity {
         recyclerInventory.setAdapter(adapter);
     }
 
-    //send an SMS message when the item quantity reaches 0
-    private void sendLowInventorySMS(String itemName) {
+    //check if the user has notification enabled
+    private boolean areNotificationsEnabled() {
 
-        // Check SMS permission status
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-
-            return;
-        }
-
+        // Retrieve the saved notification preference
         SharedPreferences preferences = getSharedPreferences("InventorySettings", MODE_PRIVATE);
 
-        String phoneNumber = preferences.getString("phoneNumber", "");
-
-        if (phoneNumber.isEmpty()) {
-            //return error toast message if phone number was not passed in when save button is clicked
-            Toast.makeText(this, "No phone number saved", Toast.LENGTH_SHORT).show();
-
-            return;
-        }
-
-        try {
-
-            SmsManager smsManager = SmsManager.getDefault();
-
-            smsManager.sendTextMessage(phoneNumber, null, "Inventory Alert: " + itemName + " is out of stock.", null, null);
-
-        } catch (Exception e) {
-            //return a toast message stating that something went wrong with the sms notification
-            Toast.makeText(this, "SMS Failed", Toast.LENGTH_SHORT).show();
-        }
+        return preferences.getBoolean("notificationsEnabled", false);
     }
 }

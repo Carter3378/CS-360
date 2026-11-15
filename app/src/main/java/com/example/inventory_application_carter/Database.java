@@ -6,12 +6,13 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.content.ContentValues;
 import android.database.Cursor;
 import java.util.ArrayList;
+
 //Database class that creates and maintains the apps SQLite database.
 public class Database extends SQLiteOpenHelper {
 
     // Database information
     private static final String DATABASE_NAME = "InventoryDB";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
 
     // Users table
     public static final String TABLE_USERS = "users";
@@ -43,11 +44,20 @@ public class Database extends SQLiteOpenHelper {
     //add new user to users table
     public long addUser(String username, String password) {
 
+        String hashedPassword;
+        // Generate a hash before storing the password
+        try {
+            hashedPassword = PasswordHelper.hashPassword(password);
+        }
+        catch (java.security.GeneralSecurityException e) {
+            return -1;
+        }
+
         SQLiteDatabase db = this.getWritableDatabase();
 
         ContentValues values = new ContentValues();
         values.put("username", username);
-        values.put("password", password);
+        values.put("password", hashedPassword);
 
         return db.insert(TABLE_USERS, null, values);
     }
@@ -57,13 +67,22 @@ public class Database extends SQLiteOpenHelper {
 
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.rawQuery("SELECT * FROM " + TABLE_USERS + " WHERE username=? AND password=?", new String[]{username, password});
+        //Retrieve stored password hash associated with the username
+        try (Cursor cursor = db.rawQuery("SELECT password FROM " + TABLE_USERS + " WHERE username=?", new String[]{username})) {
+            // Check whether a matching username was found
+            if (!cursor.moveToFirst()) {
+                return false;
+            }
 
-        boolean exists = cursor.getCount() > 0;
+            // Retrieve the password hash from database
+            String storedPassword = cursor.getString(cursor.getColumnIndexOrThrow("password"));
 
-        cursor.close();
+            // Verify the entered password against the stored hash
+            return PasswordHelper.verifyPassword(password, storedPassword);
 
-        return exists;
+        } catch (java.security.GeneralSecurityException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     //Add new item to inventory table

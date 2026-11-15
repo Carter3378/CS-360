@@ -34,17 +34,22 @@ public class MainActivity extends AppCompatActivity {
         database = new Database(this);
 
         // Create account button functionality
+        // Remove .trim() from password to preserve spaces entered by user
         buttonCreateAccount.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 
                 String username = editUsername.getText().toString().trim();
-                String password = editPassword.getText().toString().trim();
+                String password = editPassword.getText().toString();
 
                 // Verify text input fields are not empty
-                if (username.isEmpty() || password.isEmpty()) {
-                    //return a toast message error stating username and password need to be entered
-                    Toast.makeText(MainActivity.this, "Enter username and password", Toast.LENGTH_SHORT).show();
+                // Separate validation into two distinct methods
+                if (!validateUsername(username)) {
+
+                    return;
+                }
+
+                if (!validatePassword(password)) {
 
                     return;
                 }
@@ -74,13 +79,20 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
 
                 String username = editUsername.getText().toString().trim();
-                String password = editPassword.getText().toString().trim();
+                String password = editPassword.getText().toString(); //remove .trim() to preserve user input
 
-                // Verify fields are not empty
-                if (username.isEmpty() || password.isEmpty()) {
-                    //if user hits login without input return toast message with error
-                    Toast.makeText(MainActivity.this, "Enter username and password", Toast.LENGTH_SHORT).show();
-
+                // Validate login fields separately to separate functionality
+                // Validate if username is empty and return a descriptive error
+                // Add request focus to identify the missing fields entry point
+                if (username.isEmpty()) {
+                    editUsername.setError("Username is required.");
+                    editUsername.requestFocus();
+                    return;
+                }
+                //Validate if username is empty and return a descriptive error
+                if (password.isEmpty()) {
+                    editPassword.setError("Password is required.");
+                    editPassword.requestFocus();
                     return;
                 }
 
@@ -93,11 +105,87 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(intent);
                 }
                 else {
-                    //return toast message with error if login credentials were not valid
-                    Toast.makeText(MainActivity.this, "Invalid Login", Toast.LENGTH_SHORT).show();
+                    // Return toast message with error if login credentials were not valid
+                    // Use generic message instead of telling user which input was incorrect
+                    Toast.makeText(MainActivity.this, "Invalid Username or Password", Toast.LENGTH_SHORT).show();
                 }
             }
         });
 
+    }
+    //Create username validation function to ensure the information passed through meets requirements to create an account.
+    //Use requestFocus to highlight the username field as source of error
+    private boolean validateUsername(String username) {
+        //ensure username is not empty
+        //return descriptive error
+        if (username.isEmpty()) {
+            editUsername.setError("Username is required.");
+            editUsername.requestFocus();
+            return false;
+        }
+        //ensure username is greater than 4 characters
+        //return descriptive error
+        if (username.length() < 4) {
+            editUsername.setError("Username must be at least 4 characters.");
+            editUsername.requestFocus();
+            return false;
+        }
+
+        editUsername.setError(null);
+        return true;
+    }
+    // Create password validation function to ensure information entered meets the password requirements set bellow.
+    // Use requestFocus to highlight the password field as source of error
+    private boolean validatePassword(String password) {
+        //ensure password is not empty and return an error describing the issue
+        if (password.isEmpty()) {
+            editPassword.setError("Password is required.");
+            editPassword.requestFocus();
+            return false;
+        }
+
+        StringBuilder errors = new StringBuilder();
+
+        boolean containsLetter = false;
+        boolean containsNumber = false;
+
+        // Iterate through supplied password to find that it contains one letter and one number.
+        for (int i = 0; i < password.length(); i++) {
+
+            char character = password.charAt(i);
+
+            if (Character.isLetter(character)) {
+                containsLetter = true;
+            }
+
+            if (Character.isDigit(character)) {
+                containsNumber = true;
+            }
+        }
+
+        // Check for the minimum password length
+        if (password.length() < 8) {
+            errors.append("Password must be at least 8 characters. ");
+        }
+
+        // Check for at least one letter
+        if (!containsLetter) {
+            errors.append("Password must contain at least one letter. ");
+        }
+
+        // Check for at least one number
+        if (!containsNumber) {
+            errors.append("Password must contain at least one number.");
+        }
+
+        // Display validation errors if requirements are not met
+        if (errors.length() > 0) {
+            editPassword.setError(errors.toString().trim());
+            editPassword.requestFocus();
+            return false;
+        }
+
+        editPassword.setError(null);
+        return true;
     }
 }
