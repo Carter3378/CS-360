@@ -6,11 +6,12 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
-import android.content.SharedPreferences;
+import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
+import java.time.LocalDate;
 
 public class InventoryActivity extends AppCompatActivity {
 
@@ -30,6 +31,10 @@ public class InventoryActivity extends AppCompatActivity {
 
         // Initialize database
         database = new Database(this);
+
+        // Populate seed information in database.
+        // Without seeding a user would need to wait seven days after creating items for the algorithm to work.
+        ForecastTestSeeder.seed(database);
 
         // Create the notification channel
         NotificationHelper.createNotificationChannel(this);
@@ -134,6 +139,12 @@ public class InventoryActivity extends AppCompatActivity {
 
         ArrayList<InventoryItem> itemList = database.getAllItems();
 
+        // Evaluate the forecast for each inventory item
+        for (InventoryItem item : itemList) {
+
+            evaluateInventoryForecast(item);
+        }
+
         adapter = new InventoryAdapter(itemList,
 
                 // Delete button action
@@ -225,9 +236,56 @@ public class InventoryActivity extends AppCompatActivity {
     //check if the user has notification enabled
     private boolean areNotificationsEnabled() {
 
-        // Retrieve the saved notification preference
-        SharedPreferences preferences = getSharedPreferences("InventorySettings", MODE_PRIVATE);
+        return NotificationSettings.areNotificationsEnabled(this);
+    }
 
-        return preferences.getBoolean("notificationsEnabled", false);
+    // Evaluate an inventory item's forecast using historical data.
+    private void evaluateInventoryForecast(InventoryItem item) {
+
+        // Get the item's inventory history from the database.
+        ArrayList<InventoryHistory> history = database.getItemHistory(item.getItemId());
+
+        // Verify that sufficient history exists to perform calculations.
+        if (!InventoryForecast.hasSufficientHistory(history)) {
+            Log.d("InventoryForecast", item.getItemName() + ": Insufficient history.");
+            return;
+        }
+
+        // Calculate daily consumption averages.
+        double averageDailyUsage = InventoryForecast.calculateAverageDailyUsage(history);
+
+        // Run the estimate to determine how many days of inventory are left.
+        long daysRemaining = InventoryForecast.calculateDaysRemaining(item.getQuantity(), averageDailyUsage);
+
+        // Check whether a valid depletion estimate exists.
+        if (daysRemaining < 0) {
+            Log.d("InventoryForecast", item.getItemName() + ": No depletion estimate available.");
+            return;
+        }
+
+        // Calculate the projected date of inventory depletion using local time and days remaining.
+        LocalDate depletionDate = InventoryForecast.calculateDepletionDate(LocalDate.now(), daysRemaining);
+
+        // Verify that a valid date was calculated.
+        if (depletionDate == null) {
+            Log.d("InventoryForecast", item.getItemName() + ": Unable to calculate depletion date.");
+            return;
+        }
+
+        // Retrieve the global notification threshold.
+        int notificationDays = NotificationSettings.getThresholdDays(this);
+
+        // Determine whether the item meets the notification threshold.
+        boolean shouldNotify = InventoryForecast.shouldNotify(daysRemaining, notificationDays);
+
+        // Send a forecast warning when the item is within the threshold and notifications are enabled
+        if (shouldNotify && areNotificationsEnabled()) {
+
+            NotificationHelper.showForecastNotification(this, item.getItemName(), item.getItemId(), daysRemaining, depletionDate);
+        }
+
+        // Log the forecast results for verification.
+        Log.d("InventoryForecast", "Item: " + item.getItemName() + ", Average daily usage: " + averageDailyUsage +
+                ", Days remaining: " + daysRemaining + ", Notification threshold: " + notificationDays + ", Within threshold: " + shouldNotify);
     }
 }

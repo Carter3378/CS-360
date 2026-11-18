@@ -26,7 +26,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="160dp"
         android:fontFamily="serif"
-        android:text="Receive SMS alerts when item stock is low."
+        android:text="Receive notifications when item stock is low."
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -39,45 +39,101 @@
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="200dp"
-        android:text="If permission is granted, alerts will be sent when inventory reaches zero."
+        android:text="Enable notifications to recieve alerts when inventory is prediceted to run out withing your determined threshold."
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
     <!-- Switch Button for user to turn on/off notifications -->
-    <!-- Notification Status -->
-    <!-- Notification Status -->
 
     <Switch
         android:id="@+id/switchNotifications"
         android:layout_width="246dp"
         android:layout_height="70dp"
-        android:layout_marginTop="348dp"
-        android:layout_marginEnd="108dp"
+        android:layout_marginTop="280dp"
+        android:layout_marginEnd="100dp"
         android:text="Enable Notifications"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Notification Status -->
     <TextView
         android:id="@+id/textNotificationLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
+        android:layout_marginStart="20dp"
         android:text="Notification Status:"
         android:textSize="18sp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.418" />
 
+    <!-- Notification Status -->
     <TextView
         android:id="@+id/textNotificationStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="32dp"
+        android:layout_marginStart="64dp"
         android:text="Notifications Disabled"
         android:textSize="16sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toEndOf="@+id/textNotificationLabel"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.417" />
+
+    <!-- Label describing the notification threshold setting -->
+    <TextView
+        android:id="@+id/textThresholdLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="136dp"
+        android:layout_marginEnd="32dp"
+        android:text="Forecast Notification Threshold"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/switchNotifications" />
+
+    <!-- Display the number of days currently selected -->
+    <TextView
+        android:id="@+id/textThresholdValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="28dp"
+        android:text="1 days"
+        android:textSize="18sp"
+        app:layout_constraintStart_toStartOf="@id/textThresholdLabel"
+        app:layout_constraintTop_toBottomOf="@id/textThresholdLabel" />
+
+    <!-- Allow the user to select between 0 and 30 days -->
+    <SeekBar
+        android:id="@+id/seekBarThreshold"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="32dp"
+        android:max="30"
+        android:progress="1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textThresholdValue" />
+
+    <!-- Save the selected threshold to the database -->
+    <Button
+        android:id="@+id/buttonSaveThreshold"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Save Threshold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/seekBarThreshold" />
 </androidx.constraintlayout.widget.ConstraintLayout>

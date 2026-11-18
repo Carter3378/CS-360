@@ -8,18 +8,28 @@ import android.database.Cursor;
 import java.util.ArrayList;
 
 //Database class that creates and maintains the apps SQLite database.
+
 public class Database extends SQLiteOpenHelper {
 
     // Database information
     private static final String DATABASE_NAME = "InventoryDB";
-    private static final int DATABASE_VERSION = 2;
+
+    //V1 implemented two tables with plaintext storage for inventory items and login information
+    //V2 Introduced hashing and salting passwords to facilitate better security
+    //V3 introduces inventory history tracking.
+    private static final int DATABASE_VERSION = 4;
 
     // Users table
+    // Stores user accounts
     public static final String TABLE_USERS = "users";
 
     // Inventory table
+    // Stores inventory items created by users
     public static final String TABLE_INVENTORY = "inventory";
 
+    // Inventory History Table
+    // Stores a record of changes made to inventory item quantities.
+    public static final String TABLE_INVENTORY_HISTORY = "inventory_history";
 
      //Constructor
 
@@ -31,15 +41,47 @@ public class Database extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
 
-        // Create users table
-        String createUsersTable = "CREATE TABLE " + TABLE_USERS + " (" + "user_id INTEGER PRIMARY KEY AUTOINCREMENT, " + "username TEXT, " + "password TEXT)";
+        createUsersTable(db);
 
-        // Create inventory table
-        String createInventoryTable = "CREATE TABLE " + TABLE_INVENTORY + " (" + "item_id INTEGER PRIMARY KEY AUTOINCREMENT, " + "item_name TEXT, " + "quantity INTEGER)";
+        createInventoryTable(db);
 
+        createInventoryHistoryTable(db);
+    }
+
+    // Create separate methods for table creation
+    // Create a table for storing changes in quantity made to individual items
+  private void createInventoryHistoryTable(SQLiteDatabase db)  {
+        String createHistoryTable =
+                "CREATE TABLE " + TABLE_INVENTORY_HISTORY + " (" +
+                "history_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "item_id INTEGER NOT NULL, " +
+                "previous_quantity INTEGER NOT NULL, " +
+                "new_quantity INTEGER NOT NULL, " +
+                "change_amount INTEGER NOT NULL, " +
+                "timestamp INTEGER NOT NULL, " +
+                "FOREIGN KEY(item_id) REFERENCES " +
+                TABLE_INVENTORY + "(item_id))";
+        db.execSQL(createHistoryTable);
+    }
+    //Create a table for storing user accounts
+    private void createUsersTable (SQLiteDatabase db)   {
+        String createUsersTable =
+                "CREATE TABLE " + TABLE_USERS + " (" +
+                        "user_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "username TEXT, " +
+                        "password TEXT)";
         db.execSQL(createUsersTable);
+    }
+    // Create a table for storing inventory items created by users
+    private void createInventoryTable (SQLiteDatabase db) {
+        String createInventoryTable =
+                "CREATE TABLE " + TABLE_INVENTORY + " (" +
+                        "item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "item_name TEXT, " +
+                        "quantity INTEGER)";
         db.execSQL(createInventoryTable);
     }
+
 
     //add new user to users table
     public long addUser(String username, String password) {
@@ -80,24 +122,68 @@ public class Database extends SQLiteOpenHelper {
             // Verify the entered password against the stored hash
             return PasswordHelper.verifyPassword(password, storedPassword);
 
-        } catch (java.security.GeneralSecurityException | IllegalArgumentException e) {
+        }
+        catch (java.security.GeneralSecurityException | IllegalArgumentException e) {
             return false;
         }
     }
 
-    //Add new item to inventory table
+    //Add new item to inventory table and record initial quantity in the history table.
     public long addItem(String itemName, int quantity) {
+
+        // Prevent negative quantities from being stored.
+        if (quantity < 0) {
+            return -1;
+        }
 
         SQLiteDatabase db = this.getWritableDatabase();
 
-        ContentValues values = new ContentValues();
-        values.put("item_name", itemName);
-        values.put("quantity", quantity);
+        // Start an SQL transaction to ensure both functions execute before completing database operations.
+        db.beginTransaction();
 
-        return db.insert(TABLE_INVENTORY, null, values);
+        try {
+            // Prepare the new inventory item.
+            ContentValues itemValues = new ContentValues();
+            itemValues.put("item_name", itemName);
+            itemValues.put("quantity", quantity);
+
+            // Insert the item and retrieve the new ID it generates.
+            long itemId = db.insertOrThrow(TABLE_INVENTORY, null, itemValues);
+
+            // Prepare the initial inventory history record.
+            ContentValues historyValues = new ContentValues();
+
+            // Associate the history record with the newly created item.
+            historyValues.put("item_id", itemId);
+
+            // Insert a previous quantity of 0 as the item did not exist prior to this operation.
+            historyValues.put("previous_quantity", 0);
+
+            // Store the initial quantity entered by the user in the new_quantity field.
+            historyValues.put("new_quantity", quantity);
+
+            // Initial inventory will be treated as an addtion
+            historyValues.put("change_amount", quantity);
+
+            // Record when the record was created.
+            historyValues.put("timestamp", System.currentTimeMillis());
+
+            // Insert the initial history record.
+            db.insertOrThrow(TABLE_INVENTORY_HISTORY, null, historyValues);
+
+            // Mark the SQL transaction as successful.
+            db.setTransactionSuccessful();
+
+            return itemId;
+
+        }
+        finally {
+            // Commit the changes if successful, otherwise the transaction will not be completed and no changes will be made.
+            db.endTransaction();
+        }
     }
 
-    //Retrieve inventory items
+    //Retrieve inventory items.
     public ArrayList<InventoryItem> getAllItems() {
 
         ArrayList<InventoryItem> itemList = new ArrayList<>();
@@ -126,7 +212,7 @@ public class Database extends SQLiteOpenHelper {
         return itemList;
     }
 
-    //Delete an item from the inventory table
+    //Delete an item from the inventory table.
     public int deleteItem(int itemId) {
 
         SQLiteDatabase db = this.getWritableDatabase();
@@ -136,25 +222,206 @@ public class Database extends SQLiteOpenHelper {
                 });
     }
 
-    //Update quantity for an existing item in the inventory table
+    //Update quantity for an existing item in the inventory table.
     public int updateItemQuantity(int itemId, int quantity) {
+
+        //Reject invalid quantities before proceeding to write to the database.
+        if (quantity < 0) {
+            return 0;
+        }
 
         SQLiteDatabase db = this.getWritableDatabase();
 
+        // Start a transaction to ensure both updates are made together.
+        db.beginTransaction();
+
+        try {
+            int previousQuantity;
+
+            // Retrieve the items existing quantity using the selection argument to retrieve the item.
+            try (Cursor cursor = db.query(TABLE_INVENTORY, new String[]{"quantity"}, "item_id=?", new String[]{String.valueOf(itemId)}, null, null, null)) {
+
+                // Stop if the item is not found.
+                if (!cursor.moveToFirst()) {
+                    return 0;
+                }
+                // Get the item quantity.
+                previousQuantity = cursor.getInt(cursor.getColumnIndexOrThrow("quantity"));
+            }
+
+            // Determine how much the quantity changed.
+            int changeAmount = quantity - previousQuantity;
+
+            // Do not carry out database operations if the quantity is unchanged.
+            // Return 1 as to not throw an error since it is technically a valid operation.
+            if (changeAmount == 0) {
+                return 1;
+            }
+
+            // Prepare the new quantity for the inventory table.
+            ContentValues inventoryValues = new ContentValues();
+            inventoryValues.put("quantity", quantity);
+
+            // Update the existing inventory item.
+            int rowsUpdated = db.update(TABLE_INVENTORY, inventoryValues, "item_id=?", new String[]{String.valueOf(itemId)});
+
+            // Only record history if the update to the inventory table succeeded.
+            if (rowsUpdated != 1) {
+                return 0;
+            }
+
+            // Prepare a record to insert into the inventory history table
+            ContentValues historyValues = new ContentValues();
+            historyValues.put("item_id", itemId);
+            historyValues.put("previous_quantity", previousQuantity);
+            historyValues.put("new_quantity", quantity);
+            historyValues.put("change_amount", changeAmount);
+            // Record the time of the change.
+            historyValues.put("timestamp", System.currentTimeMillis());
+
+            // Insert the new historical record.
+            long historyId = db.insertOrThrow(TABLE_INVENTORY_HISTORY, null, historyValues);
+
+            // Mark the SQL transaction as successful.
+            db.setTransactionSuccessful();
+
+            return rowsUpdated;
+
+        }
+        finally {
+            // Commit the changes if successful, otherwise the transaction will not be completed and no changes will be made.
+            db.endTransaction();
+        }
+    }
+
+    // Method to retrieve the history of a specific item.
+    public ArrayList<InventoryHistory> getItemHistory(int itemId) {
+
+        // Create an array list to store the historical records.
+        ArrayList<InventoryHistory> historyList = new ArrayList<>();
+
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        // Query the history table for records matching the item ID.
+        try (Cursor cursor = db.query(
+                TABLE_INVENTORY_HISTORY, null, "item_id=?", new String[]{String.valueOf(itemId)}, null, null, "timestamp ASC, history_id ASC")) {
+
+            // Iterate through each record returned by the query.
+            while (cursor.moveToNext()) {
+
+                // Retrieve values that are stored in each column.
+                int historyId = cursor.getInt(cursor.getColumnIndexOrThrow("history_id"));
+                int recordItemId = cursor.getInt(cursor.getColumnIndexOrThrow("item_id"));
+                int previousQuantity = cursor.getInt(cursor.getColumnIndexOrThrow("previous_quantity"));
+                int newQuantity = cursor.getInt(cursor.getColumnIndexOrThrow("new_quantity"));
+                int changeAmount = cursor.getInt(cursor.getColumnIndexOrThrow("change_amount"));
+                long timestamp = cursor.getLong(cursor.getColumnIndexOrThrow("timestamp"));
+
+                // Create an InventoryHistory object using the record.
+                InventoryHistory historyRecord = new InventoryHistory(historyId, recordItemId, previousQuantity, newQuantity, changeAmount, timestamp);
+
+                // Add the object to the history array list.
+                historyList.add(historyRecord);
+            }
+        }
+        // Return the list of historical records.
+        return historyList;
+    }
+
+
+
+     // Creates an inventory item with predictable historical data for testing the forecasting algorithm.
+    public boolean seedForecastTestItem(String itemName, int finalQuantity, int totalConsumption) {
+
+        // Reject test items with invalid information.
+        if (itemName == null || itemName.trim().isEmpty() || finalQuantity < 0 || totalConsumption < 0 || (long) finalQuantity + totalConsumption > Integer.MAX_VALUE) {
+            return false;
+        }
+
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        // Start SQL transaction
+        db.beginTransaction();
+
+        try {
+            // Prevent duplicate test items.
+            try (Cursor cursor = db.query(TABLE_INVENTORY, new String[]{"item_id"}, "item_name=?", new String[]{itemName}, null, null, null)) {
+
+                if (cursor.moveToFirst()) {
+                    return false;
+                }
+            }
+
+            // Calculate the starting inventory quantity.
+            int startingQuantity = finalQuantity + totalConsumption;
+
+            // Insert the inventory item with its final quantity.
+            ContentValues itemValues = new ContentValues();
+            itemValues.put("item_name", itemName);
+            itemValues.put("quantity", finalQuantity);
+
+            long itemId = db.insertOrThrow(
+                    TABLE_INVENTORY, null, itemValues
+            );
+
+            // Establish historical timestamps.
+            long now = System.currentTimeMillis();
+            long dayMillis = 24L * 60 * 60 * 1000;
+
+            // Initial inventory record from eight days ago.
+            insertTestHistory(db, itemId, 0, startingQuantity, now - 8 * dayMillis);
+
+            // Split consumption into two historical changes.
+            int firstConsumption = totalConsumption / 2;
+            int secondConsumption = totalConsumption - firstConsumption;
+            int intermediateQuantity = startingQuantity - firstConsumption;
+
+            // Set first consumption event six days ago.
+            if (firstConsumption > 0) {
+                insertTestHistory(db, itemId, startingQuantity, intermediateQuantity, now - 6 * dayMillis);
+            }
+
+            // Set second consumption event three days ago.
+            if (secondConsumption > 0) {
+                insertTestHistory(db, itemId, intermediateQuantity, finalQuantity, now - 3 * dayMillis);
+            }
+
+            // Set the transaction status to successful
+            db.setTransactionSuccessful();
+
+            return true;
+
+        }
+        finally {
+            // Close the SQL transaction
+            db.endTransaction();
+        }
+    }
+
+    // Inserts historical data records to database for testing
+    private void insertTestHistory(SQLiteDatabase db, long itemId, int previousQuantity, int newQuantity, long timestamp) {
+
         ContentValues values = new ContentValues();
 
-        values.put("quantity", quantity);
+        values.put("item_id", itemId);
+        values.put("previous_quantity", previousQuantity);
+        values.put("new_quantity", newQuantity);
+        values.put("change_amount", newQuantity - previousQuantity);
+        values.put("timestamp", timestamp);
 
-        return db.update(TABLE_INVENTORY, values, "item_id=?", new String[]{
-                String.valueOf(itemId)
-                });
+        db.insertOrThrow(TABLE_INVENTORY_HISTORY, null, values);
     }
-    //Call on database version change to drop tables that had old info that is incomplete with new version
+
+
+    //Called when database version increases.
+    //Drops the existing tables and calls the create function.
+    //All existing DB tables and their contents are deleted.
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVENTORY);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVENTORY_HISTORY);
 
         onCreate(db);
     }
