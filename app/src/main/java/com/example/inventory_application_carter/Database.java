@@ -17,7 +17,7 @@ public class Database extends SQLiteOpenHelper {
     //V1 implemented two tables with plaintext storage for inventory items and login information
     //V2 Introduced hashing and salting passwords to facilitate better security
     //V3 introduces inventory history tracking.
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
 
     // Users table
     // Stores user accounts
@@ -37,6 +37,13 @@ public class Database extends SQLiteOpenHelper {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
 
+    // Enables foreign key enforcement since it is not true by default.
+    @Override
+    public void onConfigure(SQLiteDatabase db) {
+        super.onConfigure(db);
+        db.setForeignKeyConstraintsEnabled(true);
+    }
+
     //create database tables and columns
     @Override
     public void onCreate(SQLiteDatabase db) {
@@ -46,6 +53,8 @@ public class Database extends SQLiteOpenHelper {
         createInventoryTable(db);
 
         createInventoryHistoryTable(db);
+
+        createHistoryIndex(db);
     }
 
     // Create separate methods for table creation
@@ -55,12 +64,12 @@ public class Database extends SQLiteOpenHelper {
                 "CREATE TABLE " + TABLE_INVENTORY_HISTORY + " (" +
                 "history_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "item_id INTEGER NOT NULL, " +
-                "previous_quantity INTEGER NOT NULL, " +
-                "new_quantity INTEGER NOT NULL, " +
+                "previous_quantity INTEGER NOT NULL CHECK(previous_quantity >= 0), " +
+                "new_quantity INTEGER NOT NULL CHECK(new_quantity >= 0), " +
                 "change_amount INTEGER NOT NULL, " +
-                "timestamp INTEGER NOT NULL, " +
+                "timestamp INTEGER NOT NULL CHECK(timestamp >0), " +
                 "FOREIGN KEY(item_id) REFERENCES " +
-                TABLE_INVENTORY + "(item_id))";
+                TABLE_INVENTORY + "(item_id) ON DELETE CASCADE)";
         db.execSQL(createHistoryTable);
     }
     //Create a table for storing user accounts
@@ -68,8 +77,8 @@ public class Database extends SQLiteOpenHelper {
         String createUsersTable =
                 "CREATE TABLE " + TABLE_USERS + " (" +
                         "user_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "username TEXT, " +
-                        "password TEXT)";
+                        "username TEXT NOT NULL UNIQUE CHECK(length(trim(username)) > 0), " +
+                        "password TEXT NOT NULL)";
         db.execSQL(createUsersTable);
     }
     // Create a table for storing inventory items created by users
@@ -77,9 +86,19 @@ public class Database extends SQLiteOpenHelper {
         String createInventoryTable =
                 "CREATE TABLE " + TABLE_INVENTORY + " (" +
                         "item_id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "item_name TEXT, " +
-                        "quantity INTEGER)";
+                        "item_name TEXT NOT NULL CHECK(length(trim(item_name)) >0), " +
+                        "quantity INTEGER NOT NULL CHECK(quantity >= 0))";
         db.execSQL(createInventoryTable);
+    }
+
+    // Create an index to improve queries made against the historical inventory table
+    // SQLite has an automatic query optimizer that can implement this where efficient.
+    private void createHistoryIndex(SQLiteDatabase db){
+        String createIndex =
+                "CREATE INDEX IF NOT EXISTS idx_history_item_timestamp " +
+                        "ON " + TABLE_INVENTORY_HISTORY +
+                        " (item_id, timestamp, history_id)";
+        db.execSQL(createIndex);
     }
 
 
@@ -128,11 +147,21 @@ public class Database extends SQLiteOpenHelper {
         }
     }
 
+    //Check if a username is unique
+    public boolean usernameExists(String username) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        try (Cursor cursor = db.rawQuery("SELECT 1 FROM " + TABLE_USERS + " WHERE username=? LIMIT 1", new String[]{username})) {
+
+            return cursor.moveToFirst();
+        }
+    }
+
     //Add new item to inventory table and record initial quantity in the history table.
     public long addItem(String itemName, int quantity) {
 
         // Prevent negative quantities from being stored.
-        if (quantity < 0) {
+        if (quantity < 0 || itemName == null || itemName.trim().isEmpty()) {
             return -1;
         }
 
@@ -419,9 +448,13 @@ public class Database extends SQLiteOpenHelper {
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 
+        //Delete history table first as it references inventory
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVENTORY_HISTORY);
+
+        //Delete the remaining tables after history
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_USERS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVENTORY);
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_INVENTORY_HISTORY);
+
 
         onCreate(db);
     }

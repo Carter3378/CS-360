@@ -54,11 +54,17 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
+                // Verify if username is unique
+                if (database.usernameExists(username)){
+                    editUsername.setError("Username already in use");
+                    return;
+                }
+
                 long result = database.addUser(username, password);
 
                 if (result != -1) {
 
-                    //return a toast message notifiying user to account creation
+                    //return a toast message notifying user of account creation
                     Toast.makeText(MainActivity.this, "Account Created", Toast.LENGTH_SHORT).show();
 
                     // Clear text boxes after successful account creation
